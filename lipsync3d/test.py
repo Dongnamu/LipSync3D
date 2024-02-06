@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 from options import Options
 from dataset import Lipsync3DMeshDataset
-from model import Lipsync3DMesh
+from model import Lipsync3DMesh, Lipsync3DModel
 from loss import L2Loss
 import time
 from utils import mesh_tensor_to_landmarkdict, draw_mesh_images
@@ -14,6 +14,11 @@ from tqdm import tqdm
 import cv2
 import shutil
 
+# -------------------------------------------- Added by Jonghoon Shin
+import torch.nn as nn
+from IQA_pytorch import SSIM
+from torchvision.utils import save_image
+# -------------------------------------------- Added by Jonghoon Shin
 
 if __name__ == '__main__':
     opt = Options().parse_args()
@@ -29,9 +34,11 @@ if __name__ == '__main__':
     )
 
     model = Lipsync3DMesh().to(device)
+    # model = nn.DataParallel(model)
     criterionGeo = L2Loss()
+    criterionTex = SSIM(channels=3)
 
-    if opt.model_name is not None:
+    if opt.load_only_mesh:
         state_dict = torch.load(os.path.join(opt.tgt_dir, opt.model_name))
         audioEncoder_state = {}
         geometryDecoder_state = {}
@@ -43,8 +50,30 @@ if __name__ == '__main__':
                 geometryDecoder_state[key.replace('GeometryDecoder.', '')] = value
         model.AudioEncoder.load_state_dict(audioEncoder_state)
         model.GeometryDecoder.load_state_dict(geometryDecoder_state)
-    else:
-        raise ValueError('No checkpoint specified')
+        
+    # state_dict = torch.load(os.path.join(opt.tgt_dir, 'Lipsync3dnet.pth'))
+    # audioEncoder_state = {}
+    # geometryDecoder_state = {}
+
+    # for key, value in state_dict.items():
+    #     if 'AudioEncoder' in key:
+    #         audioEncoder_state[key.replace('AudioEncoder.', '')] = value
+    #     if 'GeometryDecoder' in key:
+    #         geometryDecoder_state[key.replace('GeometryDecoder.', '')] = value
+    # model.AudioEncoder.load_state_dict(audioEncoder_state)
+    # model.GeometryDecoder.load_state_dict(geometryDecoder_state)
+
+    # state_dict = torch.load(os.path.join(opt.tgt_dir, 'Lipsync3dnet_ADAM.pth'))
+    # textureEncoder_state = {}
+    # textureDecoder_state = {}
+
+    # for key, value in state_dict.items():
+    #     if 'TextureEncoder' in key:
+    #         textureEncoder_state[key.replace('module.TextureEncoder.', '')] = value
+    #     if 'TextureDecoder' in key:
+    #         textureDecoder_state[key.replace('module.TextureDecoder.', '')] = value
+    # model.TextureEncoder.load_state_dict(textureEncoder_state)
+    # model.TextureDecoder.load_state_dict(textureDecoder_state)
 
     def emptyFolder(path):
         if os.path.exists(path):
@@ -73,10 +102,16 @@ if __name__ == '__main__':
             RT = R.transpose(0, 1)
             t = data['t'][0].to(device)
             c = data['c'][0].to(device)
+            # reference_mouth = data['reference_mouth'].to(device)
 
+            # if i == 0:
+            #     previous_texture = reference_mouth
+
+            # geometry_diff, texture_diff = model(audio_feature, previous_texture)
             geometry_diff = model(audio_feature)
             geometry_diff = geometry_diff.reshape(-1, 478, 3)
             geometry = reference_mesh + geometry_diff
+            # predicted_mouth = reference_mouth + texture_diff
 
             if calculate_test_loss and (i > int(len(test_dataloader) * opt.train_rate)):
                 geoLoss = criterionGeo(geometry, normalized_mesh)
@@ -88,6 +123,8 @@ if __name__ == '__main__':
             
             geometry = (torch.matmul(RT, (geometry - t)) / c).transpose(0, 1).cpu().detach()
             landmark_dict = mesh_tensor_to_landmarkdict(geometry)
+
+            # previous_texture = predicted_mouth
             
             # save_image(predicted_mouth[0], os.path.join(opt.src_dir, 'reenact_texture',filename.split('.')[0]+'.jpg'))
             torch.save(normalised_landmark_dict, os.path.join(opt.src_dir,'predicted_normalised_mesh',filename))

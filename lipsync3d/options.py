@@ -10,7 +10,7 @@ class Options:
         self.parser.add_argument('--tgt_dir', type=str, default=None)
 
         self.parser.add_argument('--train_rate', type=float, default=0.8)
-        self.parser.add_argument('--num_epoch', type=int, default=250)
+        self.parser.add_argument('--num_epoch', type=int, default=500)
         self.parser.add_argument('--batch_size', type=int, default=128)
         self.parser.add_argument('--serial_batches', type=self.str2bool, default=False)
         self.parser.add_argument('--num_workers', type=int, default=4)
@@ -23,10 +23,15 @@ class Options:
         self.parser.add_argument('--display_freq', type=int, default=2000, help='frequency of showing training results on screen')
         self.parser.add_argument('--print_freq', type=int, default=200, help='frequency of showing training results on console')
         self.parser.add_argument('--freeze_mesh', type=bool, default=False, help='Choose if you want to freeze mesh training pipeline or not')
+        self.parser.add_argument('--load_only_mesh', type=bool, default=False, help='Load only Audio Encoder and Mesh Decoder part from the save file')
         self.parser.add_argument('--load_model', type=bool, default=False, help='Load model from the checkpoint')
-        self.parser.add_argument('--model_name', type=str, default=None, help='Name of the checkpoint file')
+        self.parser.add_argument('--model_name', type=str, default='', help='Name of the checkpoint file')
         self.parser.add_argument('--mesh_model_path', type=str, default='', help='Path of the mesh model checkpoint file')
+        self.parser.add_argument('--autoregressive', type=self.str2bool, default=True, help='Autoregressive mode on or off')
+        self.parser.add_argument('--changeAggressive', type=bool, default=False, help='Change model from aggressive to no aggressive')
+        self.parser.add_argument('--changeSize', type=bool, default=False, help='Change the input size')
         self.parser.add_argument('--checkpoint_interval', type=int, default=10, help='Checkpoint interval')
+        self.parser.add_argument('--syncnet_checkpoint_path', type=str, required=False, help='Checkpoint path to syncnet')
         
 
     def parse_args(self):
